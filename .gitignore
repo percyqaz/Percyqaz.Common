@@ -1,0 +1,7 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/src/.idea/.idea.Percyqaz.Common.dir/.idea
+/src/obj
+/src/bin
