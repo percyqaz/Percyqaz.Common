@@ -93,11 +93,11 @@ module Setting =
 
     let rate x = bounded x 0.5f 2.0f |> roundf 2
 
-type LoggingLevel = DEBUG = 0 | INFO = 1 | WARNING = 2 | ERROR = 3 | CRITICAL = 4
-type LoggingEvent = LoggingLevel * string * string
-
 [<AutoOpen>]
 module Logging =
+
+    type LoggingLevel = DEBUG = 0 | INFO = 1 | WARNING = 2 | ERROR = 3 | CRITICAL = 4
+    type LoggingEvent = LoggingLevel * string * string
 
     type Logging() =
         static let evt = new Event<LoggingEvent>()
