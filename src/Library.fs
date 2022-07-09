@@ -121,9 +121,8 @@ module Logging =
         static member Critical s = Logging.Log LoggingLevel.CRITICAL s ""
 
         static member Wait() =
-            printfn "Waiting for logging to finish .."
-            //while agent.CurrentQueueLength > 0 do
-            Thread.Sleep(200)
+            while agent.CurrentQueueLength > 0 do
+                Thread.Sleep(200)
 
     Logging.Subscribe (fun (level, main, details) -> printfn "[%A]: %s" level main; if level = LoggingLevel.CRITICAL then printfn " .. %s" details)
 
