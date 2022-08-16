@@ -141,7 +141,7 @@ module Profiling =
 module Async =
     
     /// Allows you to request some asynchronous work to be done, with a callback when it completes
-    /// If you use a higher level of concurrency, Results may not come back in the order they were requested
+    /// Results come back in the order they were requested
     [<AbstractClass>]
     type ManyWorker<'Request, 'Reply>() as this =
         let worker = 
