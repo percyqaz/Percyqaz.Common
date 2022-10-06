@@ -167,7 +167,7 @@ module Async =
 
     /// Allows you to request some asynchronous work to be done
     ///  If another job is requested before the first completes, the result of the outdated job is swallowed
-    /// This allows easy reasoning about background jobs and how their results join with the main update loop
+    /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
     type SingletonWorker<'Request, 'Reply>() as this =
         let mutable job_number = 0
@@ -178,8 +178,10 @@ module Async =
                 ( fun box -> 
                     let rec loop () = async {
                         let! id, request = box.Receive()
-                        let processed = this.Handle request
-                        lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
+                        try
+                            let processed = this.Handle request
+                            lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
+                        with err -> Logging.Error(sprintf "Error in #%i %O" id request, err)
                         return! loop ()
                     }
                     loop ()
@@ -197,8 +199,8 @@ module Async =
                 
     /// Allows you to request some asynchronous work to be done
     /// This version processes a sequence of items and runs a callback as each is completed
-    ///  If another job is requested before the first completes, the results of the outdated job are swallowed
-    /// This allows easy reasoning about background jobs and how their results join with the main update loop
+    ///  If another job is requested before the first completes, the remaining results of the outdated job are swallowed
+    /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
     type SingletonWorkerSeq<'Request, 'Reply>() as this =
         let mutable job_number = 0
@@ -209,9 +211,11 @@ module Async =
                 ( fun box -> 
                     let rec loop () = async {
                         let! id, request = box.Receive()
-                        for processed in this.Handle request do
-                            lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
-                        lock lockObj ( fun () -> if id = job_number then this.JobCompleted(request) )
+                        try
+                            for processed in this.Handle request do
+                                lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
+                            lock lockObj ( fun () -> if id = job_number then this.JobCompleted(request) )
+                        with err -> Logging.Error(sprintf "Error in #%i %O" id request, err)
                         return! loop ()
                     }
                     loop ()
