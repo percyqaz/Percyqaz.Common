@@ -143,25 +143,28 @@ module Async =
     /// Allows you to request some asynchronous work to be done, with a callback when it completes
     /// Results come back in the order they were requested
     [<AbstractClass>]
-    type ManyWorker<'Request, 'Reply>() as this =
+    type Service<'Request, 'Reply>() as this =
         let worker = 
-            MailboxProcessor<'Request>.Start
+            MailboxProcessor<'Request * ('Reply -> unit)>.Start
                 ( fun box -> 
                     let rec loop () = async {
-                        let! request = box.Receive()
-                        let res = this.Handle request
-                        this.Callback(request, res)
+                        let! (request, callback) = box.Receive()
+                        let! res = this.Handle request
+                        callback res
                         return! loop ()
                     }
                     loop ()
                 )
         
-        abstract member Handle: 'Request -> 'Reply
+        abstract member Handle: 'Request -> Async<'Reply>
         
-        abstract member Callback: 'Request * 'Reply -> unit
-        
-        member this.Request(req: 'Request) : unit =
-            worker.Post req
+        member this.RequestAsync(req: 'Request) : Async<'Reply> =
+            async {
+                return! worker.PostAndAsyncReply(fun chan -> (req, fun reply -> chan.Reply reply))
+            }
+
+        member this.Request(req: 'Request, callback: 'Reply -> unit) : unit =
+            worker.Post(req, callback)
 
     type Job<'T> = int * 'T
 
@@ -169,7 +172,7 @@ module Async =
     ///  If another job is requested before the first completes, the result of the outdated job is swallowed
     /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
-    type SingletonWorker<'Request, 'Reply>() as this =
+    type SwitchService<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let lockObj = obj()
 
@@ -202,7 +205,7 @@ module Async =
     ///  If another job is requested before the first completes, the remaining results of the outdated job are swallowed
     /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
-    type SingletonWorkerSeq<'Request, 'Reply>() as this =
+    type SwitchServiceSeq<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let lockObj = obj()
 
