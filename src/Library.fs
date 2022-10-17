@@ -233,5 +233,7 @@ module Async =
         abstract member JobCompleted: 'Request -> unit
 
         member this.Request(req: 'Request) : unit =
-            lock lockObj ( fun () -> job_number <- job_number + 1 )
-            worker.Post(job_number, req)
+            lock lockObj ( fun () ->
+                job_number <- job_number + 1
+                worker.Post(job_number, req)
+            )
