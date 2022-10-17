@@ -149,8 +149,10 @@ module Async =
                 ( fun box -> 
                     let rec loop () = async {
                         let! (request, callback) = box.Receive()
-                        let! res = this.Handle request
-                        callback res
+                        try
+                            let! res = this.Handle request
+                            callback res
+                        with err -> Logging.Error(sprintf "Error handling request: %O" request, err)
                         return! loop ()
                     }
                     loop ()
@@ -184,7 +186,7 @@ module Async =
                         try
                             let processed = this.Handle request
                             lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
-                        with err -> Logging.Error(sprintf "Error in #%i %O" id request, err)
+                        with err -> Logging.Error(sprintf "Error in request #%i: %O" id request, err)
                         return! loop ()
                     }
                     loop ()
