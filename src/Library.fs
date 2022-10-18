@@ -139,16 +139,27 @@ module Profiling =
     let profile name = new ProfilingBuilder(name)
 
 module Async =
+
+    [<RequireQualifiedAccess>]
+    type ServiceStatus =
+        | Idle
+        | Working
+        | Busy
     
     /// Allows you to request some asynchronous work to be done, with a callback when it completes
     /// Results come back in the order they were requested
     [<AbstractClass>]
     type Service<'Request, 'Reply>() as this =
+
+        let mutable working = false
+
         let worker = 
             MailboxProcessor<'Request * ('Reply -> unit)>.Start
                 ( fun box -> 
                     let rec loop () = async {
+                        working <- false
                         let! (request, callback) = box.Receive()
+                        working <- true
                         try
                             let! res = this.Handle request
                             callback res
@@ -167,6 +178,11 @@ module Async =
 
         member this.Request(req: 'Request, callback: 'Reply -> unit) : unit =
             worker.Post(req, callback)
+
+        member this.Status = 
+            if working then
+                if worker.CurrentQueueLength > 0 then ServiceStatus.Busy else ServiceStatus.Working
+            else ServiceStatus.Idle
 
     type Job<'T> = int * 'T
 
