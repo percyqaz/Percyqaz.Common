@@ -184,7 +184,7 @@ module Async =
                 if worker.CurrentQueueLength > 0 then ServiceStatus.Busy else ServiceStatus.Working
             else ServiceStatus.Idle
 
-    type Job<'T> = int * 'T
+    type private Job<'Request, 'Reply> = int * 'Request * ('Reply -> unit)
 
     /// Allows you to request some asynchronous work to be done
     ///  If another job is requested before the first completes, the result of the outdated job is swallowed
@@ -195,29 +195,29 @@ module Async =
         let lockObj = obj()
 
         let worker = 
-            MailboxProcessor<Job<'Request>>.Start
+            MailboxProcessor<Job<'Request, 'Reply>>.Start
                 ( fun box -> 
                     let rec loop () = async {
-                        let! id, request = box.Receive()
+                        let! id, request, callback = box.Receive()
                         try
-                            let processed = this.Handle request
-                            lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
+                            let! processed = this.Handle request
+                            lock lockObj ( fun () -> if id = job_number then callback processed )
                         with err -> Logging.Error(sprintf "Error in request #%i: %O" id request, err)
                         return! loop ()
                     }
                     loop ()
                 )
 
-        abstract member Handle: 'Request -> 'Reply
+        abstract member Handle: 'Request -> Async<'Reply>
 
-        abstract member Callback: 'Reply -> unit
-
-        member this.Request(req: 'Request) : unit =
+        member this.Request(req: 'Request, callback: 'Reply -> unit) : unit =
             lock lockObj ( fun () -> 
                 job_number <- job_number + 1
-                worker.Post(job_number, req)
+                worker.Post(job_number, req, callback)
             )
                 
+    type private Job<'Request> = int * 'Request
+
     /// Allows you to request some asynchronous work to be done
     /// This version processes a sequence of items and runs a callback as each is completed
     ///  If another job is requested before the first completes, the remaining results of the outdated job are swallowed
