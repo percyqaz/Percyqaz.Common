@@ -10,6 +10,11 @@ module Combinators =
     
     let K x _ = x
 
+[<AutoOpen>]
+module Operators =
+
+    let inline (%%) (a: 'T) (b: 'T) = ((a % b) + b) % b
+
 [<Measure>]
 type ms
 type Time = float32<ms>
