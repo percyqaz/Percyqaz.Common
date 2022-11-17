@@ -96,8 +96,6 @@ module Setting =
     let percent x = bounded x 0.0 1.0 |> round 2
     let percentf x = bounded x 0.0f 1.0f |> roundf 2
 
-    let rate x = bounded x 0.5f 2.0f |> roundf 2
-
 [<AutoOpen>]
 module Logging =
 
