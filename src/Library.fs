@@ -166,7 +166,7 @@ module Async =
                         try
                             let! res = this.Handle request
                             callback res
-                        with err -> Logging.Error(sprintf "Error handling request: %O" request, err)
+                        with err -> Logging.Critical(sprintf "Unhandled exception for message: %O" request, err)
                         return! loop ()
                     }
                     loop ()
