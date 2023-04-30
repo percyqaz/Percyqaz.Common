@@ -96,6 +96,14 @@ module Setting =
     let percent x = bounded x 0.0 1.0 |> round 2
     let percentf x = bounded x 0.0f 1.0f |> roundf 2
 
+    let f32 (setting: Setting<float, Bounds<float>>) = 
+        let (Bounds (lo, hi)) = setting.Config
+        {
+            Set = float >> setting.Set
+            Get = setting.Get >> float32
+            Config = Bounds (float32 lo, float32 hi)
+        }
+
 [<AutoOpen>]
 module Logging =
 
