@@ -1,6 +1,7 @@
 ﻿namespace Percyqaz.Common
 
 open System
+open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
 open System.Threading
@@ -104,38 +105,74 @@ module Setting =
             Config = Bounds (float32 lo, float32 hi)
         }
 
-[<AutoOpen>]
-module Logging =
+type LoggingLevel = DEBUG = 0 | INFO = 1 | WARNING = 2 | ERROR = 3 | CRITICAL = 4
+type LoggingEvent = LoggingLevel * string * string
 
-    type LoggingLevel = DEBUG = 0 | INFO = 1 | WARNING = 2 | ERROR = 3 | CRITICAL = 4
-    type LoggingEvent = LoggingLevel * string * string
+type Logging() =
+    static let evt = new Event<LoggingEvent>()
+    static let mutable init_handle : IDisposable option = None
 
-    type Logging() =
-        static let evt = new Event<LoggingEvent>()
+    static let mutable using_defaults = true
+    static let mutable logFile = None
+    static let mutable verbosity = LoggingLevel.DEBUG
 
-        static let agent = new MailboxProcessor<LoggingEvent>(fun box -> async { while (true) do let! e = box.Receive() in evt.Trigger e })
-        static do agent.Start()
+    static let agent = new MailboxProcessor<LoggingEvent>(fun box -> async { while (true) do let! e = box.Receive() in evt.Trigger e })
+    static do agent.Start()
 
-        static member Subscribe f = evt.Publish.Add f
-        static member Log level main details = agent.Post (level, main, details.ToString())
+    static member LogFile 
+        with get() = logFile
+        and set(value) = using_defaults <- false; logFile <- value
 
-        static member Info (s, err) = Logging.Log LoggingLevel.INFO s err
-        static member Warn (s, err) = Logging.Log LoggingLevel.WARNING s err
-        static member Error (s, err) = Logging.Log LoggingLevel.ERROR s err
-        static member Debug (s, err) = Logging.Log LoggingLevel.DEBUG s err
-        static member Critical (s, err) = Logging.Log LoggingLevel.CRITICAL s err
+    static member Verbosity 
+        with get() = verbosity
+        and set(value) = using_defaults <- false; verbosity <- value
 
-        static member Info s = Logging.Log LoggingLevel.INFO s ""
-        static member Warn s = Logging.Log LoggingLevel.WARNING s ""
-        static member Error s = Logging.Log LoggingLevel.ERROR s ""
-        static member Debug s = Logging.Log LoggingLevel.DEBUG s ""
-        static member Critical s = Logging.Log LoggingLevel.CRITICAL s ""
+    static member Subscribe (f: LoggingEvent -> unit) = evt.Publish.Subscribe f
+    static member Log level main details = 
+        if init_handle.IsNone then init_handle <- Some <| Logging.Init()
+        agent.Post (level, main, details.ToString())
 
-        static member Wait() =
-            while agent.CurrentQueueLength > 0 do
-                Thread.Sleep(200)
+    static member private Init() : IDisposable =
+        if using_defaults then printfn "Initialising logging using defaults"
 
-    Logging.Subscribe (fun (level, main, details) -> printfn "[%A]: %s" level main; if level = LoggingLevel.CRITICAL then printfn " .. %s" details)
+        let v = Logging.Verbosity
+        let text_logger = 
+            Logging.Subscribe 
+                (fun (level, main, details) ->
+                    if level >= v then 
+                        printfn "[%A]: %s" level main
+                        if level = LoggingLevel.CRITICAL then printfn " .. %s" details)
+
+        match Logging.LogFile with
+        | Some f ->
+
+            let logfile = File.Open(f, FileMode.Append)
+            let sw = new StreamWriter(logfile)
+            let file_writer = 
+                Logging.Subscribe
+                    ( fun (level, main, details) ->
+                        if details = "" then sprintf "[%A] %s" level main else sprintf "[%A] %s\n%s" level main details
+                        |> sw.WriteLine )
+            
+            { new IDisposable with override this.Dispose() = text_logger.Dispose(); sw.Close(); sw.Dispose(); logfile.Dispose(); file_writer.Dispose() }
+        | None -> { new IDisposable with override this.Dispose() = text_logger.Dispose() }
+
+    static member Info (s, err) = Logging.Log LoggingLevel.INFO s err
+    static member Warn (s, err) = Logging.Log LoggingLevel.WARNING s err
+    static member Error (s, err) = Logging.Log LoggingLevel.ERROR s err
+    static member Debug (s, err) = Logging.Log LoggingLevel.DEBUG s err
+    static member Critical (s, err) = Logging.Log LoggingLevel.CRITICAL s err
+
+    static member Info s = Logging.Log LoggingLevel.INFO s ""
+    static member Warn s = Logging.Log LoggingLevel.WARNING s ""
+    static member Error s = Logging.Log LoggingLevel.ERROR s ""
+    static member Debug s = Logging.Log LoggingLevel.DEBUG s ""
+    static member Critical s = Logging.Log LoggingLevel.CRITICAL s ""
+
+    static member Shutdown() =
+        while agent.CurrentQueueLength > 0 do
+            Thread.Sleep(200)
+        match init_handle with Some o -> o.Dispose() | None -> ()
 
 [<AutoOpen>]
 module Profiling =
