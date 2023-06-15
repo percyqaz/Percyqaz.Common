@@ -246,6 +246,7 @@ module Async =
             MailboxProcessor<Job<'Request, 'Reply>>.Start
                 ( fun box -> 
                     let rec loop () = async {
+                        while box.CurrentQueueLength > 1 do let! _ = box.Receive() in ()
                         let! id, request, callback = box.Receive()
                         try
                             let! processed = this.Handle request
