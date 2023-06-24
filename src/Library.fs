@@ -85,6 +85,11 @@ module Setting =
         { setting with
             Set = fun v -> setting.Set (MathF.Round (v, dp))
         }
+        
+    let inline roundt (dp: int) (setting: Setting<float32<ms>, 'Config>) =
+        { setting with
+            Set = fun v -> setting.Set (MathF.Round (float32 v, dp) * 1.0f<ms>)
+        }
 
     let alphaNum (setting: Setting<string, 'Config>) =
         let regex = Regex("[^\sa-zA-Z0-9_-]")
