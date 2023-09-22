@@ -149,8 +149,9 @@ type Logging() =
                         if level = LoggingLevel.CRITICAL then printfn " .. %s" details)
 
         match Logging.LogFile with
-        | Some f ->
+        | Some (f: string) ->
 
+            Directory.CreateDirectory(Path.GetDirectoryName f) |> ignore
             let logfile = File.Open(f, FileMode.Append)
             let sw = new StreamWriter(logfile)
             let file_writer = 
