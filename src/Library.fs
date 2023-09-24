@@ -153,7 +153,7 @@ type Logging() =
 
             Directory.CreateDirectory(Path.GetDirectoryName f) |> ignore
             let logfile = File.Open(f, FileMode.Append)
-            let sw = new StreamWriter(logfile)
+            let sw = new StreamWriter(logfile, AutoFlush = true)
             let file_writer = 
                 Logging.Subscribe
                     ( fun (level, main, details) ->
@@ -176,6 +176,7 @@ type Logging() =
     static member Critical s = Logging.Log LoggingLevel.CRITICAL s ""
 
     static member Shutdown() =
+        Thread.Sleep(200)
         while agent.CurrentQueueLength > 0 do
             Thread.Sleep(200)
         match init_handle with Some o -> o.Dispose() | None -> ()
