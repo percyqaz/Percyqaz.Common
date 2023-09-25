@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Diagnostics
 open System.Text.RegularExpressions
+open System.Collections.Generic
 open System.Threading
 
 [<AutoOpen>]
@@ -184,14 +185,25 @@ type Logging() =
 [<AutoOpen>]
 module Profiling =
 
+    let private data = Dictionary<string, List<float>>()
+
     type ProfilingBuilder(name) =
         let sw = Stopwatch.StartNew()
+        do if not (data.ContainsKey name) then data.[name] <- List<float>()
+        member this.Delay(f) = f()
+        member this.Combine(a, b) = b
         member this.Return x =
-            Logging.Debug (sprintf "%s: took %.0fms" name sw.Elapsed.TotalMilliseconds)
+            data.[name].Add(sw.Elapsed.TotalMilliseconds)
             x
         member this.Zero() = this.Return()
 
     let profile name = new ProfilingBuilder(name)
+
+    let dump_profiling_info() =
+        for k in data.Keys do
+            let items = data.[k]
+            Logging.Debug(sprintf "%s: min %.4fms, max %.4fms, avg %.4fms, %i calls" k (Seq.min items) (Seq.max items) (Seq.average items) items.Count)
+            items.Clear()
 
 module Async =
 
