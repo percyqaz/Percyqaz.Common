@@ -202,8 +202,9 @@ module Profiling =
     let dump_profiling_info() =
         for k in data.Keys do
             let items = data.[k]
-            Logging.Debug(sprintf "%s: min %.4fms, max %.4fms, avg %.4fms, %i calls" k (Seq.min items) (Seq.max items) (Seq.average items) items.Count)
-            items.Clear()
+            if items.Count > 0 then
+                Logging.Debug(sprintf "%s: min %.4fms, max %.4fms, avg %.4fms, %i calls" k (Seq.min items) (Seq.max items) (Seq.average items) items.Count)
+                items.Clear()
 
 module Async =
 
