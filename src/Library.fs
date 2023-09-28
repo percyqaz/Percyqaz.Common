@@ -303,8 +303,8 @@ module Async =
                         let! id, request = box.Receive()
                         try
                             for processed in this.Handle request do
-                                lock lockObj ( fun () -> if id = job_number then this.Callback(processed) )
-                            lock lockObj ( fun () -> if id = job_number then this.JobCompleted(request) )
+                                lock lockObj ( fun () -> if id = job_number then this.Callback(id, processed) )
+                            lock lockObj ( fun () -> if id = job_number then this.JobCompleted(id, request) )
                         with err -> Logging.Error(sprintf "Error in #%i %O" id request, err)
                         return! loop ()
                     }
@@ -313,12 +313,13 @@ module Async =
 
         abstract member Handle: 'Request -> 'Reply seq
 
-        abstract member Callback: 'Reply -> unit
+        abstract member Callback: int * 'Reply -> unit
 
-        abstract member JobCompleted: 'Request -> unit
+        abstract member JobCompleted: Job<'Request> -> unit
 
-        member this.Request(req: 'Request) : unit =
+        member this.Request(req: 'Request) : int =
             lock lockObj ( fun () ->
                 job_number <- job_number + 1
                 worker.Post(job_number, req)
+                job_number
             )
