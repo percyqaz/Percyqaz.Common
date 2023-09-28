@@ -252,7 +252,7 @@ module Async =
                 if worker.CurrentQueueLength > 0 then ServiceStatus.Busy else ServiceStatus.Working
             else ServiceStatus.Idle
 
-    type private Job<'Request, 'Reply> = int * 'Request * ('Reply -> unit)
+    type private Job<'Request, 'Reply> = int * 'Request * (int * 'Reply -> unit)
 
     /// Allows you to request some asynchronous work to be done
     ///  If another job is requested before the first completes, the result of the outdated job is swallowed
@@ -270,7 +270,7 @@ module Async =
                         let! id, request, callback = box.Receive()
                         try
                             let! processed = this.Handle request
-                            lock lockObj ( fun () -> if id = job_number then callback processed )
+                            lock lockObj ( fun () -> if id = job_number then callback (id, processed) )
                         with err -> Logging.Error(sprintf "Error in request #%i: %O" id request, err)
                         return! loop ()
                     }
@@ -279,10 +279,11 @@ module Async =
 
         abstract member Handle: 'Request -> Async<'Reply>
 
-        member this.Request(req: 'Request, callback: 'Reply -> unit) : unit =
+        member this.Request(req: 'Request, callback: int * 'Reply -> unit) : int =
             lock lockObj ( fun () -> 
                 job_number <- job_number + 1
                 worker.Post(job_number, req, callback)
+                job_number
             )
                 
     type private Job<'Request> = int * 'Request
