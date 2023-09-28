@@ -252,8 +252,6 @@ module Async =
                 if worker.CurrentQueueLength > 0 then ServiceStatus.Busy else ServiceStatus.Working
             else ServiceStatus.Idle
 
-    type private Job<'Request, 'Reply> = int * 'Request * (int * 'Reply -> unit)
-
     /// Allows you to request some asynchronous work to be done
     ///  If another job is requested before the first completes, the result of the outdated job is swallowed
     /// This allows easy reasoning about background jobs and how their results join with a single main thread
@@ -261,33 +259,45 @@ module Async =
     type SwitchService<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let lockObj = obj()
+        let mutable result : (int * 'Reply) option = None
 
         let worker = 
-            MailboxProcessor<Job<'Request, 'Reply>>.Start
+            MailboxProcessor<int * 'Request>.Start
                 ( fun box -> 
                     let rec loop () = async {
                         while box.CurrentQueueLength > 1 do let! _ = box.Receive() in ()
-                        let! id, request, callback = box.Receive()
+                        let! id, request = box.Receive()
                         try
-                            let! processed = this.Handle request
-                            lock lockObj ( fun () -> if id = job_number then callback (id, processed) )
+                            let! processed = this.Process request
+                            lock lockObj ( fun () -> result <- Some (id, processed) )
                         with err -> Logging.Error(sprintf "Error in request #%i: %O" id request, err)
                         return! loop ()
                     }
                     loop ()
                 )
 
-        abstract member Handle: 'Request -> Async<'Reply>
+        /// This code runs asynchronously to fulfil the request
+        abstract member Process: 'Request -> Async<'Reply>
 
-        member this.Request(req: 'Request, callback: int * 'Reply -> unit) : int =
+        /// This code runs in whatever thread calls .Join()
+        abstract member Handle: 'Reply -> unit
+        
+        /// Call this from the main thread to queue a new request. Any unhandled results from older requests are discarded
+        member this.Request(req: 'Request) =
             lock lockObj ( fun () -> 
                 job_number <- job_number + 1
-                worker.Post(job_number, req, callback)
-                job_number
+                worker.Post(job_number, req)
+            )
+
+        /// Call this from the main thread to handle the result of the most recently completed request
+        member this.Join() =
+            lock lockObj ( fun () -> 
+                match result with
+                | Some (id, item) -> if id = job_number then this.Handle item
+                | None -> ()
+                result <- None
             )
                 
-    type private Job<'Request> = int * 'Request
-
     /// Allows you to request some asynchronous work to be done
     /// This version processes a sequence of items and runs a callback as each is completed
     ///  If another job is requested before the first completes, the remaining results of the outdated job are swallowed
@@ -296,31 +306,41 @@ module Async =
     type SwitchServiceSeq<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let lockObj = obj()
+        let mutable queue = []
 
         let worker = 
-            MailboxProcessor<Job<'Request>>.Start
+            MailboxProcessor<int * 'Request>.Start
                 ( fun box -> 
                     let rec loop () = async {
                         let! id, request = box.Receive()
                         try
-                            for processed in this.Handle request do
-                                lock lockObj ( fun () -> if id = job_number then this.Callback(id, processed) )
-                            lock lockObj ( fun () -> if id = job_number then this.JobCompleted(id, request) )
+                            for processed in this.Process request do
+                                lock lockObj ( fun () -> queue <- queue @ [id, processed] )
+                            //lock lockObj ( fun () -> if id = job_number then this.JobCompleted(id, request) )
                         with err -> Logging.Error(sprintf "Error in #%i %O" id request, err)
                         return! loop ()
                     }
                     loop ()
                 )
+                
+        /// This code runs asynchronously to fulfil the request
+        abstract member Process: 'Request -> 'Reply seq
+        
+        /// This code runs in whatever thread calls .Join()
+        abstract member Handle: 'Reply -> unit
 
-        abstract member Handle: 'Request -> 'Reply seq
+        //abstract member JobCompleted: unit -> unit
 
-        abstract member Callback: int * 'Reply -> unit
-
-        abstract member JobCompleted: Job<'Request> -> unit
-
-        member this.Request(req: 'Request) : int =
+        member this.Request(req: 'Request) =
             lock lockObj ( fun () ->
                 job_number <- job_number + 1
                 worker.Post(job_number, req)
-                job_number
+            )
+
+        /// Call this from the main thread to handle the result of the most recently completed request
+        member this.Join() =
+            lock lockObj ( fun () -> 
+                for id, item in queue do
+                    if id = job_number then this.Handle item
+                queue <- []
             )
