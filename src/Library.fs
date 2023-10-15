@@ -66,7 +66,7 @@ module Setting =
     let trigger (action: 'T -> unit) (setting: Setting<'T, 'Config>) = { setting with Set = fun x -> setting.Set x; action x }
 
     let inline bound (min: 'T) (max: 'T) (setting: Setting<'T, 'Config>) =
-        if min > max then invalidArg (nameof min) "min cannot be more than max"
+        if min > max then invalidArg (nameof min) (sprintf "min (%O) cannot be more than max (%O)" min max)
         {
             Set =
                 fun v ->
@@ -96,6 +96,7 @@ module Setting =
         let regex = Regex("[^\sa-zA-Z0-9_-]")
         map id (fun s -> regex.Replace(s, "")) setting
 
+    // todo: reorder these arguments as x first is confusing
     let inline bounded x min max =
         simple x
         |> bound min max
