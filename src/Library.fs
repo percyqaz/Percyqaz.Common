@@ -11,10 +11,9 @@ open System.Threading
 module Combinators =
     
     let K x _ = x
+    let fork (f: 'T -> unit) (g: 'T -> unit) = fun t -> f t; g t
 
-[<AutoOpen>]
-module Operators =
-
+    // modulo instead of remainder
     let inline (%%) (a: 'T) (b: 'T) = ((a % b) + b) % b
 
 [<Measure>]
@@ -92,7 +91,7 @@ module Setting =
             Set = fun v -> setting.Set (MathF.Round (float32 v, dp) * 1.0f<ms>)
         }
 
-    let alphaNum (setting: Setting<string, 'Config>) =
+    let alphanumeric (setting: Setting<string, 'Config>) =
         let regex = Regex("[^\sa-zA-Z0-9_-]")
         map id (fun s -> regex.Replace(s, "")) setting
 
@@ -242,7 +241,7 @@ module Async =
         
         member this.RequestAsync(req: 'Request) : Async<'Reply> =
             async {
-                return! worker.PostAndAsyncReply(fun chan -> (req, fun reply -> chan.Reply reply))
+                return! worker.PostAndAsyncReply(fun channel -> (req, fun reply -> channel.Reply reply))
             }
 
         member this.Request(req: 'Request, callback: 'Reply -> unit) : unit =
@@ -259,7 +258,7 @@ module Async =
     [<AbstractClass>]
     type SwitchService<'Request, 'Reply>() as this =
         let mutable job_number = 0
-        let lockObj = obj()
+        let LOCK_OBJ = obj()
         let mutable result : (int * 'Reply) option = None
 
         let worker = 
@@ -270,7 +269,7 @@ module Async =
                         let! id, request = box.Receive()
                         try
                             let! processed = this.Process request
-                            lock lockObj ( fun () -> result <- Some (id, processed) )
+                            lock LOCK_OBJ ( fun () -> result <- Some (id, processed) )
                         with err -> Logging.Error(sprintf "Error in request #%i: %O" id request, err)
                         return! loop ()
                     }
@@ -285,14 +284,14 @@ module Async =
         
         /// Call this from the main thread to queue a new request. Any unhandled results from older requests are discarded
         member this.Request(req: 'Request) =
-            lock lockObj ( fun () -> 
+            lock LOCK_OBJ ( fun () -> 
                 job_number <- job_number + 1
                 worker.Post(job_number, req)
             )
 
         /// Call this from the main thread to handle the result of the most recently completed request
         member this.Join() =
-            lock lockObj ( fun () -> 
+            lock LOCK_OBJ ( fun () -> 
                 match result with
                 | Some (id, item) -> if id = job_number then this.Handle item
                 | None -> ()
@@ -306,7 +305,7 @@ module Async =
     [<AbstractClass>]
     type SwitchServiceSeq<'Request, 'Reply>() as this =
         let mutable job_number = 0
-        let lockObj = obj()
+        let LOCK_OBJ = obj()
         let mutable queue = []
 
         let worker = 
@@ -316,7 +315,7 @@ module Async =
                         let! id, request = box.Receive()
                         try
                             for processed in this.Process request do
-                                lock lockObj ( fun () -> queue <- queue @ [id, processed] )
+                                lock LOCK_OBJ ( fun () -> queue <- queue @ [id, processed] )
                             //lock lockObj ( fun () -> if id = job_number then this.JobCompleted(id, request) )
                         with err -> Logging.Error(sprintf "Error in #%i %O" id request, err)
                         return! loop ()
@@ -333,14 +332,14 @@ module Async =
         //abstract member JobCompleted: unit -> unit
 
         member this.Request(req: 'Request) =
-            lock lockObj ( fun () ->
+            lock LOCK_OBJ ( fun () ->
                 job_number <- job_number + 1
                 worker.Post(job_number, req)
             )
 
         /// Call this from the main thread to handle the result of the most recently completed request
         member this.Join() =
-            lock lockObj ( fun () -> 
+            lock LOCK_OBJ ( fun () -> 
                 for id, item in queue do
                     if id = job_number then this.Handle item
                 queue <- []
