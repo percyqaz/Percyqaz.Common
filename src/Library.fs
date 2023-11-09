@@ -142,7 +142,7 @@ type Logging() =
     static let mutable init_handle: IDisposable option = None
 
     static let mutable using_defaults = true
-    static let mutable logFile = None
+    static let mutable log_file = None
     static let mutable verbosity = LoggingLevel.DEBUG
 
     static let agent =
@@ -157,10 +157,10 @@ type Logging() =
     static do agent.Start()
 
     static member LogFile
-        with get () = logFile
+        with get () = log_file
         and set (value) =
             using_defaults <- false
-            logFile <- value
+            log_file <- value
 
     static member Verbosity
         with get () = verbosity
