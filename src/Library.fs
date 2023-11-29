@@ -80,7 +80,7 @@ module Setting =
                     action x
         }
 
-    let inline bound (min: 'T) (max: 'T) (setting: Setting<'T, 'Config>) =
+    let inline bound (min: 'T) (max: 'T) (setting: Setting<'T, 'Config>) : Setting<'T, Bounds<'T>> =
         if min > max then
             invalidArg (nameof min) (sprintf "min (%O) cannot be more than max (%O)" min max)
 
