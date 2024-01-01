@@ -412,7 +412,6 @@ module Async =
                         try
                             for processed in this.Process request do
                                 lock LOCK_OBJ (fun () -> queue <- queue @ [ id, processed ])
-                        //lock lockObj ( fun () -> if id = job_number then this.JobCompleted(id, request) )
                         with err ->
                             Logging.Error(sprintf "Error in #%i %O" id request, err)
 
