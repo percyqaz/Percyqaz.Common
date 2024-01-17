@@ -24,6 +24,11 @@ module Combinators =
     // modulo instead of remainder
     let inline (%%) (a: 'T) (b: 'T) = ((a % b) + b) % b
 
+    let expect (res: Result<'A, 'B>) : 'A =
+        match res with
+        | Ok ok -> ok
+        | Error e -> failwithf "Expected success, got: %O" e
+
 [<Measure>]
 type ms
 
