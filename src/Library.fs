@@ -7,6 +7,13 @@ open System.Text.RegularExpressions
 open System.Collections.Generic
 open System.Threading
 
+module Timestamp =
+
+    let now() = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+    let from_datetime (dt: DateTime) = (DateTimeOffset.op_Implicit dt).ToUnixTimeMilliseconds()
+    let to_datetimeoffset (ts: int64) = DateTimeOffset.FromUnixTimeMilliseconds ts
+    let to_datetime (ts: int64) = to_datetimeoffset(ts).DateTime
+
 [<AutoOpen>]
 module Combinators =
 
