@@ -259,23 +259,11 @@ module Profiling =
 
     let private data = Dictionary<string, List<float>>()
 
-    type ProfilingBuilder(name) =
+    let profile name func =
         let sw = Stopwatch.StartNew()
-
-        do
-            if not (data.ContainsKey name) then
-                data.[name] <- List<float>()
-
-        member this.Delay(f) = f ()
-        member this.Combine(a, b) = b
-
-        member this.Return x =
-            data.[name].Add(sw.Elapsed.TotalMilliseconds)
-            x
-
-        member this.Zero() = this.Return()
-
-    let profile name = new ProfilingBuilder(name)
+        if not (data.ContainsKey name) then data.[name] <- ResizeArray()
+        func ()
+        data.[name].Add(sw.Elapsed.TotalMilliseconds)
 
     let dump_profiling_info () =
         for k in data.Keys do
