@@ -89,7 +89,7 @@ module Setting =
             Set =
                 fun x ->
                     setting.Set x
-                    action x
+                    action setting.Value
         }
 
     let inline bound (min: 'T) (max: 'T) (setting: Setting<'T, 'Config>) : Setting<'T, Bounds<'T>> =
