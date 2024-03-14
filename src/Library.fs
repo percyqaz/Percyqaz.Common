@@ -72,16 +72,6 @@ module Setting =
             Config = ()
         }
 
-    let threadsafe (x: 'T) =
-        let mutable x = x
-        let lock_obj = obj()
-
-        {
-            Set = fun v -> lock lock_obj (fun () -> x <- v)
-            Get = fun () -> lock lock_obj (fun () -> x)
-            Config = ()
-        }
-
     let make (set: 'T -> unit) (get: unit -> 'T) = { Set = set; Get = get; Config = () }
 
     let map (after_get: 'T -> 'U) (before_set: 'U -> 'T) (setting: Setting<'T, 'Config>) =
