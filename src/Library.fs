@@ -9,9 +9,15 @@ open System.Threading
 
 module Timestamp =
 
-    let now() = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-    let from_datetime (dt: DateTime) = (DateTimeOffset.op_Implicit <| dt.ToUniversalTime()).ToUnixTimeMilliseconds()
-    let to_datetimeoffset (ts: int64) = DateTimeOffset.FromUnixTimeMilliseconds(ts)
+    let now () =
+        DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+
+    let from_datetime (dt: DateTime) =
+        (DateTimeOffset.op_Implicit <| dt.ToUniversalTime()).ToUnixTimeMilliseconds()
+
+    let to_datetimeoffset (ts: int64) =
+        DateTimeOffset.FromUnixTimeMilliseconds(ts)
+
     let to_datetime (ts: int64) = to_datetimeoffset(ts).UtcDateTime
 
 [<AutoOpen>]
@@ -261,7 +267,10 @@ module Profiling =
 
     let profile name func =
         let sw = Stopwatch.StartNew()
-        if not (data.ContainsKey name) then data.[name] <- ResizeArray()
+
+        if not (data.ContainsKey name) then
+            data.[name] <- ResizeArray()
+
         func ()
         data.[name].Add(sw.Elapsed.TotalMilliseconds)
 
