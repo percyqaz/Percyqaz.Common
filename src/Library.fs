@@ -203,7 +203,7 @@ type Logging() =
         let text_logger =
             Logging.Subscribe(fun (level, main, details) ->
                 if level >= v then
-                    printfn "[%A]: %s" level main
+                    printfn "[%A] %s" level main
 
                     if level = LoggingLevel.CRITICAL then
                         printfn " .. %s" details
