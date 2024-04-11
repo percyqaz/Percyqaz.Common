@@ -407,6 +407,7 @@ module Async =
     ///  If another job is requested before the first completes, the remaining results of the outdated job are swallowed
     /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
+    // todo: replace 'reply with unit -> unit
     type SwitchServiceSeq<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let LOCK_OBJ = obj ()
