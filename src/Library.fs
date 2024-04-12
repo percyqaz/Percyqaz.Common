@@ -128,7 +128,7 @@ module Setting =
         }
 
     let alphanumeric (setting: Setting<string, 'Config>) =
-        let regex = Regex("[^\sa-zA-Z0-9_-]")
+        let regex = Regex(@"[^\sa-zA-Z0-9'_-]")
         map id (fun s -> regex.Replace(s, "")) setting
 
     // todo: reorder these arguments as x first is confusing
