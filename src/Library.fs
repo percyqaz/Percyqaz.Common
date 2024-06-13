@@ -318,7 +318,7 @@ module Async =
                             let! res = this.Handle request
                             callback res
                         with err ->
-                            Logging.Critical(sprintf "Service exception -- %O" request, err)
+                            Logging.Critical(sprintf "Service exception in %O" this, err)
 
                         return! loop ()
                     }
@@ -365,7 +365,7 @@ module Async =
                             let! processed = this.Process request
                             lock LOCK_OBJ (fun () -> result <- Some(id, processed))
                         with err ->
-                            Logging.Error(sprintf "Error in request #%i: %O" id request, err)
+                            Logging.Error(sprintf "Error in request #%i of %O" id this, err)
 
                         return! loop ()
                     }
@@ -423,7 +423,7 @@ module Async =
                             for processed in this.Process request do
                                 lock LOCK_OBJ (fun () -> queue <- queue @ [ id, processed ])
                         with err ->
-                            Logging.Error(sprintf "Error in #%i %O" id request, err)
+                            Logging.Error(sprintf "Error in request #%i of %O" id this, err)
 
                         return! loop ()
                     }
