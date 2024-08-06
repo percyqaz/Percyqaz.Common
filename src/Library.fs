@@ -20,6 +20,8 @@ module Timestamp =
 
     let to_datetime (ts: int64) = to_datetimeoffset(ts).UtcDateTime
 
+    let since (ts: int64) = TimeSpan.FromMilliseconds(now () - ts |> float)
+
 [<AutoOpen>]
 module Combinators =
 
