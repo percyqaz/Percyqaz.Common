@@ -68,7 +68,7 @@ type Setting<'T> = Setting<'T, unit>
 
 module Setting =
 
-    type Bounds<'T> = Bounds of min: 'T * max: 'T
+    type Bounds<'T> = 'T * 'T
     type Bounded<'T> = Setting<'T, Bounds<'T>>
 
     let simple (x: 'T) =
@@ -111,7 +111,7 @@ module Setting =
                     elif v > max then setting.Set max
                     else setting.Set v
             Get = setting.Get
-            Config = Bounds(min, max)
+            Config = min, max
         }
 
     let inline round (dp: int) (setting: Setting<float, 'Config>) =
@@ -140,7 +140,7 @@ module Setting =
     let percentf x = bounded x 0.0f 1.0f |> roundf 2
 
     let f32 (setting: Setting<float, Bounds<float>>) =
-        let (Bounds(lo, hi)) = setting.Config
+        let lo, hi = setting.Config
 
         {
             Set = float >> setting.Set
