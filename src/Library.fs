@@ -148,6 +148,15 @@ module Setting =
             Config = Bounds(float32 lo, float32 hi)
         }
 
+    let uom (setting: Setting<float32<'u>, Bounds<float32<'u>>>) : Setting<float32, Bounds<float32>> =
+        let lo, hi = setting.Config
+
+        {
+            Set = fun v -> setting.Set (LanguagePrimitives.Float32WithMeasure v)
+            Get = fun () -> float32 setting.Value
+            Config = Bounds(float32 lo, float32 hi)
+        }
+
 type LoggingLevel =
     | DEBUG = 0
     | INFO = 1
