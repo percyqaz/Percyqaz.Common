@@ -51,6 +51,9 @@ type ms
 
 type Time = float32<ms>
 
+[<Measure>]
+type rate
+
 type NYI = unit
 
 type Setting<'T, 'Config> =
