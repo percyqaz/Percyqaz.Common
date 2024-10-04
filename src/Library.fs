@@ -126,9 +126,9 @@ module Setting =
             Set = fun v -> setting.Set(MathF.Round(v, dp))
         }
 
-    let inline roundt (dp: int) (setting: Setting<float32<ms>, 'Config>) =
+    let inline roundf_uom (dp: int) (setting: Setting<float32<'u>, 'Config>) =
         { setting with
-            Set = fun v -> setting.Set(MathF.Round(float32 v, dp) * 1.0f<ms>)
+            Set = fun v -> setting.Set(MathF.Round(float32 v, dp) |> LanguagePrimitives.Float32WithMeasure)
         }
 
     let alphanumeric (setting: Setting<string, 'Config>) =
