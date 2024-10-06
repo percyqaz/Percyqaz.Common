@@ -105,7 +105,7 @@ module Setting =
                     action setting.Value
         }
 
-    let inline bound (min: 'T) (max: 'T) (setting: Setting<'T, 'Config>) : Setting<'T, Bounds<'T>> =
+    let inline bound (min: 'T, max: 'T) (setting: Setting<'T, 'Config>) : Setting<'T, Bounds<'T>> =
         if min > max then
             invalidArg (nameof min) (sprintf "min (%O) cannot be more than max (%O)" min max)
 
@@ -138,11 +138,10 @@ module Setting =
         let regex = Regex(@"[^\sa-zA-Z0-9'_-]")
         map id (fun s -> regex.Replace(s, "")) setting
 
-    // todo: reorder these arguments as x first is confusing
-    let inline bounded x min max = simple x |> bound min max
+    let inline bounded (min, max) x = simple x |> bound (min, max)
 
-    let percent x = bounded x 0.0 1.0 |> round 2
-    let percentf x = bounded x 0.0f 1.0f |> roundf 2
+    let percent x = x |> bounded (0.0, 1.0) |> round 2
+    let percentf x = x |> bounded (0.0f, 1.0f) |> roundf 2
 
     let f32 (setting: Setting<float, Bounds<float>>) =
         let lo, hi = setting.Config
