@@ -452,14 +452,19 @@ module Async =
         /// This code runs in whatever thread calls .Join()
         abstract member Handle: 'Reply -> unit
 
-        //abstract member JobCompleted: unit -> unit
-
         member this.Request(req: 'Request) =
             lock
                 LOCK_OBJ
                 (fun () ->
                     job_number <- job_number + 1
                     worker.Post(job_number, req)
+                )
+
+        member this.Cancel() =
+            lock
+                LOCK_OBJ
+                (fun () ->
+                    job_number <- job_number + 1
                 )
 
         /// Call this from the main thread to handle the result of the most recently completed request
