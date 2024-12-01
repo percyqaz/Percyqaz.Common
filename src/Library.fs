@@ -46,6 +46,8 @@ module Combinators =
 
     let inline floor_uom (f: float32<'u>) : float32<'u> =  f |> float32 |> floor |> LanguagePrimitives.Float32WithMeasure
 
+    let lerp x a b : float32 = (b - a) * x + a
+
 [<Measure>]
 type ms
 
