@@ -170,7 +170,7 @@ type LoggingLevel =
     | ERROR = 3
     | CRITICAL = 4
 
-type LoggingEvent = LoggingLevel * string * string
+type LoggingEvent = LoggingLevel * string
 
 type Logging() =
     static let evt = new Event<LoggingEvent>()
@@ -205,11 +205,11 @@ type Logging() =
 
     static member Subscribe(f: LoggingEvent -> unit) = evt.Publish.Subscribe f
 
-    static member Log level main details =
+    static member Log level message =
         if init_handle.IsNone then
             init_handle <- Some <| Logging.Init()
 
-        agent.Post(level, main, details.ToString())
+        agent.Post(level, message)
 
     static member private Init() : IDisposable =
         if using_defaults then
@@ -218,12 +218,8 @@ type Logging() =
         let v = Logging.Verbosity
 
         let text_logger =
-            Logging.Subscribe(fun (level, main, details) ->
-                if level >= v then
-                    printfn "[%A] %s" level main
-
-                    if level = LoggingLevel.CRITICAL then
-                        printfn " .. %s" details
+            Logging.Subscribe(fun (level, message) ->
+                if level >= v then printfn "[%s] [%A] %s" (DateTime.Now.ToString("HH:mm")) level message
             )
 
         match Logging.LogFile with
@@ -234,11 +230,8 @@ type Logging() =
             let sw = new StreamWriter(logfile, AutoFlush = true)
 
             let file_writer =
-                Logging.Subscribe(fun (level, main, details) ->
-                    if details = "" then
-                        sprintf "[%A] %s" level main
-                    else
-                        sprintf "[%A] %s\n%s" level main details
+                Logging.Subscribe(fun (level, message) ->
+                    sprintf "[%s] [%A] %s" (DateTime.Now.ToString("HH:mm")) level message
                     |> sw.WriteLine
                 )
 
@@ -255,17 +248,11 @@ type Logging() =
                 override this.Dispose() = text_logger.Dispose()
             }
 
-    static member Info(s, err) = Logging.Log LoggingLevel.INFO s err
-    static member Warn(s, err) = Logging.Log LoggingLevel.WARNING s err
-    static member Error(s, err) = Logging.Log LoggingLevel.ERROR s err
-    static member Debug(s, err) = Logging.Log LoggingLevel.DEBUG s err
-    static member Critical(s, err) = Logging.Log LoggingLevel.CRITICAL s err
-
-    static member Info s = Logging.Log LoggingLevel.INFO s ""
-    static member Warn s = Logging.Log LoggingLevel.WARNING s ""
-    static member Error s = Logging.Log LoggingLevel.ERROR s ""
-    static member Debug s = Logging.Log LoggingLevel.DEBUG s ""
-    static member Critical s = Logging.Log LoggingLevel.CRITICAL s ""
+    static member Info fmt = Printf.ksprintf (fun s -> Logging.Log LoggingLevel.INFO s) fmt
+    static member Warn fmt = Printf.ksprintf (fun s -> Logging.Log LoggingLevel.WARNING s) fmt
+    static member Error fmt = Printf.ksprintf (fun s -> Logging.Log LoggingLevel.ERROR s) fmt
+    static member Debug fmt = Printf.ksprintf (fun s -> Logging.Log LoggingLevel.DEBUG s) fmt
+    static member Critical fmt = Printf.ksprintf (fun s -> Logging.Log LoggingLevel.CRITICAL s) fmt
 
     static member Shutdown() =
         Thread.Sleep(200)
@@ -296,15 +283,13 @@ module Profiling =
             let items = data.[k]
 
             if items.Count > 0 then
-                Logging.Debug(
-                    sprintf
-                        "%s: min %.4fms, max %.4fms, avg %.4fms, %i calls"
-                        k
-                        (Seq.min items)
-                        (Seq.max items)
-                        (Seq.average items)
-                        items.Count
-                )
+                Logging.Debug
+                    "%s: min %.4fms, max %.4fms, avg %.4fms, %i calls"
+                    k
+                    (Seq.min items)
+                    (Seq.max items)
+                    (Seq.average items)
+                    items.Count
 
                 items.Clear()
 
@@ -335,7 +320,7 @@ module Async =
                             let! res = this.Handle request
                             callback res
                         with err ->
-                            Logging.Critical(sprintf "Service exception in %O" this, err)
+                            Logging.Critical "Service exception in %O: %O" this err
 
                         return! loop ()
                     }
@@ -382,7 +367,7 @@ module Async =
                             let! processed = this.Process request
                             lock LOCK_OBJ (fun () -> result <- Some(id, processed))
                         with err ->
-                            Logging.Error(sprintf "Error in request #%i of %O" id this, err)
+                            Logging.Error "Error in request #%i of %O: %O" id this err
 
                         return! loop ()
                     }
@@ -440,7 +425,7 @@ module Async =
                             for processed in this.Process request do
                                 lock LOCK_OBJ (fun () -> queue <- queue @ [ id, processed ])
                         with err ->
-                            Logging.Error(sprintf "Error in request #%i of %O" id this, err)
+                            Logging.Error "Error in request #%i of %O: %O" id this err
 
                         return! loop ()
                     }
