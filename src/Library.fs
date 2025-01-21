@@ -44,7 +44,7 @@ module Combinators =
         | Ok ok -> ok
         | Error e -> failwithf "Expected success, got: %O" e
 
-    let inline floor_uom (f: float32<'u>) : float32<'u> =  f |> float32 |> floor |> LanguagePrimitives.Float32WithMeasure
+    let inline floor_uom (f: float32<'u>) : float32<'u> = f |> float32 |> floor |> LanguagePrimitives.Float32WithMeasure
 
     let lerp x a b : float32 = (b - a) * x + a
 
