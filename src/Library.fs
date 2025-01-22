@@ -207,7 +207,10 @@ type Logging() =
 
     static member Log level message =
         if init_handle.IsNone then
-            init_handle <- Some <| Logging.Init()
+            lock agent (fun () ->
+                if init_handle.IsNone then
+                    init_handle <- Some <| Logging.Init()
+            )
 
         agent.Post(level, message)
 
