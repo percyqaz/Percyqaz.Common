@@ -313,8 +313,8 @@ module Async =
 
         let worker =
             MailboxProcessor<'Request * ('Reply -> unit)>.Start(fun box ->
-                let rec loop () =
-                    async {
+                async {
+                    while true do
                         working <- false
                         let! (request, callback) = box.Receive()
                         working <- true
@@ -324,11 +324,7 @@ module Async =
                             callback res
                         with err ->
                             Logging.Critical "Service exception in %O: %O" this err
-
-                        return! loop ()
-                    }
-
-                loop ()
+                }
             )
 
         abstract member Handle: 'Request -> Async<'Reply>
@@ -358,8 +354,8 @@ module Async =
 
         let worker =
             MailboxProcessor<int * 'Request>.Start(fun box ->
-                let rec loop () =
-                    async {
+                async {
+                    while true do
                         while box.CurrentQueueLength > 1 do
                             let! _ = box.Receive()
                             ()
@@ -371,11 +367,7 @@ module Async =
                             lock LOCK_OBJ (fun () -> result <- Some(id, processed))
                         with err ->
                             Logging.Error "Error in request #%i of %O: %O" id this err
-
-                        return! loop ()
-                    }
-
-                loop ()
+                }
             )
 
         /// This code runs asynchronously to fulfil the request
@@ -420,8 +412,12 @@ module Async =
 
         let worker =
             MailboxProcessor<int * 'Request>.Start(fun box ->
-                let rec loop () =
-                    async {
+                async {
+                    while true do
+                        while box.CurrentQueueLength > 1 do
+                            let! _ = box.Receive()
+                            ()
+
                         let! id, request = box.Receive()
 
                         try
@@ -429,11 +425,7 @@ module Async =
                                 lock LOCK_OBJ (fun () -> queue <- queue @ [ id, processed ])
                         with err ->
                             Logging.Error "Error in request #%i of %O: %O" id this err
-
-                        return! loop ()
-                    }
-
-                loop ()
+                }
             )
 
         /// This code runs asynchronously to fulfil the request
