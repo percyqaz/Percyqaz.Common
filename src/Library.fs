@@ -222,7 +222,14 @@ type Logging() =
 
         let text_logger =
             Logging.Subscribe(fun (level, message) ->
-                if level >= v then printfn "[%s] [%A] %s" (DateTime.Now.ToString("HH:mm")) level message
+                if level >= v then
+                    match level with
+                    | LoggingLevel.DEBUG -> printf "\x1b[2m"
+                    | LoggingLevel.WARNING -> printf "\x1b[93m"
+                    | LoggingLevel.ERROR -> printf "\x1b[91m"
+                    | LoggingLevel.CRITICAL -> printf "\x1b[94m"
+                    | _ -> ()
+                    printfn "[%s] [%A] %s\x1b[0m" (DateTime.Now.ToString("HH:mm")) level message
             )
 
         match Logging.LogFile with
