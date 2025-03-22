@@ -306,7 +306,7 @@ module Profiling =
 module Async =
 
     [<RequireQualifiedAccess>]
-    type ServiceStatus =
+    type QueueStatus =
         | Idle
         | Working
         | Busy
@@ -314,7 +314,7 @@ module Async =
     /// Allows you to request some asynchronous work to be done, with a callback when it completes
     /// Results come back in the order they were requested
     [<AbstractClass>]
-    type Service<'Request, 'Reply>() as this =
+    type Queue<'Request, 'Reply>() as this =
 
         let mutable working = false
 
@@ -344,17 +344,18 @@ module Async =
         member this.Status =
             if working then
                 if worker.CurrentQueueLength > 0 then
-                    ServiceStatus.Busy
+                    QueueStatus.Busy
                 else
-                    ServiceStatus.Working
+                    QueueStatus.Working
             else
-                ServiceStatus.Idle
+                QueueStatus.Idle
 
     /// Allows you to request some asynchronous work to be done
-    ///  If another job is requested before the first completes, the result of the outdated job is swallowed
+    ///  If another job is requested before the current completes, the result of the outdated job is swallowed
+    ///  If many jobs are requested before the current job completes, all but the latest are swallowed
     /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
-    type SwitchService<'Request, 'Reply>() as this =
+    type CancelQueue<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let LOCK_OBJ = obj ()
         let mutable result: (int * 'Reply) option = None
@@ -408,11 +409,12 @@ module Async =
 
     /// Allows you to request some asynchronous work to be done
     /// This version processes a sequence of items and runs a callback as each is completed
-    ///  If another job is requested before the first completes, the remaining results of the outdated job are swallowed
+    ///  If another job is requested before the current job completes, the remaining results of the outdated job are swallowed
+    ///  If many jobs are requested before the current job completes, all but the latest are swallowed
     /// This allows easy reasoning about background jobs and how their results join with a single main thread
     [<AbstractClass>]
     // todo: replace 'reply with unit -> unit
-    type SwitchServiceSeq<'Request, 'Reply>() as this =
+    type CancelQueueSeq<'Request, 'Reply>() as this =
         let mutable job_number = 0
         let LOCK_OBJ = obj ()
         let mutable queue = []
