@@ -6,38 +6,39 @@ open System.Diagnostics
 open System.Text.RegularExpressions
 open System.Collections.Generic
 open System.Threading
+open System.Runtime.CompilerServices
 
 module Timestamp =
 
-    let now () =
+    let now () : int64 =
         DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
 
-    let from_datetime (dt: DateTime) =
+    let from_datetime (dt: DateTime) : int64 =
         (DateTimeOffset.op_Implicit <| dt.ToUniversalTime()).ToUnixTimeMilliseconds()
 
-    let to_datetimeoffset (ts: int64) =
+    let to_datetimeoffset (ts: int64) : DateTimeOffset =
         DateTimeOffset.FromUnixTimeMilliseconds(ts)
 
-    let to_datetime (ts: int64) = to_datetimeoffset(ts).UtcDateTime
+    let to_datetime (ts: int64) : DateTime = to_datetimeoffset(ts).UtcDateTime
 
-    let since (ts: int64) = TimeSpan.FromMilliseconds(now () - ts |> float)
+    let since (ts: int64) : TimeSpan = TimeSpan.FromMilliseconds(now () - ts |> float)
 
 [<AutoOpen>]
 module Combinators =
 
-    let K x _ = x
+    let K (x: 'T) (_: _) : 'T = x
 
-    let fork (f: 'T -> unit) (g: 'T -> unit) =
+    let fork (f: 'T -> unit) (g: 'T -> unit) : 'T -> unit =
         fun t ->
             f t
             g t
 
-    let debug x =
+    let debug (x: 'A) : 'A =
         printfn "%A" x
         x
 
     // modulo instead of remainder
-    let inline (%%) (a: 'T) (b: 'T) = ((a % b) + b) % b
+    let inline (%%) (a: 'T) (b: 'T) : 'T = ((a % b) + b) % b
 
     let expect (res: Result<'A, 'B>) : 'A =
         match res with
@@ -46,7 +47,7 @@ module Combinators =
 
     let inline floor_uom (f: float32<'u>) : float32<'u> = f |> float32 |> floor |> LanguagePrimitives.Float32WithMeasure
 
-    let lerp x a b : float32 = (b - a) * x + a
+    let lerp (x: float32) (a: float32) (b: float32) : float32 = (b - a) * x + a
 
 [<Measure>]
 type ms
@@ -68,7 +69,7 @@ type Setting<'T, 'Config> =
         with get () = this.Get()
         and set (v) = this.Set(v)
 
-    override this.ToString() =
+    override this.ToString() : string =
         sprintf "<%O, %A>" this.Value this.Config
 
 type Setting<'T> = Setting<'T, unit>
@@ -87,19 +88,19 @@ module Setting =
             Config = ()
         }
 
-    let make (set: 'T -> unit) (get: unit -> 'T) = { Set = set; Get = get; Config = () }
+    let make (set: 'T -> unit) (get: unit -> 'T) : Setting<'T> = { Set = set; Get = get; Config = () }
 
-    let map (after_get: 'T -> 'U) (before_set: 'U -> 'T) (setting: Setting<'T, 'Config>) =
+    let map (after_get: 'T -> 'U) (before_set: 'U -> 'T) (setting: Setting<'T, 'Config>) : Setting<'U, 'Config> =
         {
             Set = before_set >> setting.Set
             Get = after_get << setting.Get
             Config = setting.Config
         }
 
-    let iter (f: 'T -> unit) (setting: Setting<'T, 'Config>) = f setting.Value
-    let app (f: 'T -> 'T) (setting: Setting<'T, 'Config>) = setting.Value <- f setting.Value
+    let iter (f: 'T -> unit) (setting: Setting<'T, 'Config>) : unit = f setting.Value
+    let app (f: 'T -> 'T) (setting: Setting<'T, 'Config>) : unit = setting.Value <- f setting.Value
 
-    let trigger (action: 'T -> unit) (setting: Setting<'T, 'Config>) =
+    let trigger (action: 'T -> unit) (setting: Setting<'T, 'Config>) : Setting<'T, 'Config> =
         { setting with
             Set =
                 fun x ->
@@ -121,31 +122,34 @@ module Setting =
             Config = min, max
         }
 
-    let inline round (dp: int) (setting: Setting<float, 'Config>) =
+    let inline round (dp: int) (setting: Setting<float, 'Config>) : Setting<float, 'Config> =
         { setting with
             Set = fun v -> setting.Set(Math.Round(v, dp))
         }
 
-    let inline roundf (dp: int) (setting: Setting<float32, 'Config>) =
+    let inline roundf (dp: int) (setting: Setting<float32, 'Config>) : Setting<float32, 'Config> =
         { setting with
             Set = fun v -> setting.Set(MathF.Round(v, dp))
         }
 
-    let inline roundf_uom (dp: int) (setting: Setting<float32<'u>, 'Config>) =
+    let inline roundf_uom (dp: int) (setting: Setting<float32<'u>, 'Config>) : Setting<float32<'u>, 'Config> =
         { setting with
             Set = fun v -> setting.Set(MathF.Round(float32 v, dp) |> LanguagePrimitives.Float32WithMeasure)
         }
 
-    let alphanumeric (setting: Setting<string, 'Config>) =
+    let alphanumeric (setting: Setting<string, 'Config>) : Setting<string, 'Config> =
         let regex = Regex(@"[^\sa-zA-Z0-9'_-]")
         map id (fun s -> regex.Replace(s, "")) setting
 
-    let inline bounded (min, max) x = simple x |> bound (min, max)
+    let inline bounded (min: 'T, max: 'T) (x: 'T) : Bounded<'T> = simple x |> bound (min, max)
 
-    let percent x = x |> bounded (0.0, 1.0) |> round 2
-    let percentf x = x |> bounded (0.0f, 1.0f) |> roundf 2
+    let percent (x: float) : Bounded<float> =
+        x |> bounded (0.0, 1.0) |> round 2
 
-    let f32 (setting: Setting<float, Bounds<float>>) =
+    let percentf (x: float32) : Bounded<float32> =
+        x |> bounded (0.0f, 1.0f) |> roundf 2
+
+    let f32 (setting: Bounded<float>) : Bounded<float32> =
         let lo, hi = setting.Config
 
         {
@@ -154,7 +158,7 @@ module Setting =
             Config = Bounds(float32 lo, float32 hi)
         }
 
-    let uom (setting: Setting<float32<'u>, Bounds<float32<'u>>>) : Setting<float32, Bounds<float32>> =
+    let uom (setting: Bounded<float32<'u>>) : Bounded<float32> =
         let lo, hi = setting.Config
 
         {
@@ -341,7 +345,7 @@ module Async =
 
         member this.Request(req: 'Request, callback: 'Reply -> unit) : unit = worker.Post(req, callback)
 
-        member this.Status =
+        member this.Status : QueueStatus =
             if working then
                 if worker.CurrentQueueLength > 0 then
                     QueueStatus.Busy
@@ -385,7 +389,7 @@ module Async =
         abstract member Handle: 'Reply -> unit
 
         /// Call this from the main thread to queue a new request. Any unhandled results from older requests are discarded
-        member this.Request(req: 'Request) =
+        member this.Request(req: 'Request) : unit =
             lock
                 LOCK_OBJ
                 (fun () ->
@@ -394,7 +398,7 @@ module Async =
                 )
 
         /// Call this from the main thread to handle the result of the most recently completed request
-        member this.Join() =
+        member this.Join() : unit =
             lock
                 LOCK_OBJ
                 (fun () ->
@@ -443,7 +447,7 @@ module Async =
         /// This code runs in whatever thread calls .Join()
         abstract member Handle: 'Reply -> unit
 
-        member this.Request(req: 'Request) =
+        member this.Request(req: 'Request) : unit =
             lock
                 LOCK_OBJ
                 (fun () ->
@@ -451,7 +455,7 @@ module Async =
                     worker.Post(job_number, req)
                 )
 
-        member this.Cancel() =
+        member this.Cancel() : unit =
             lock
                 LOCK_OBJ
                 (fun () ->
@@ -459,7 +463,7 @@ module Async =
                 )
 
         /// Call this from the main thread to handle the result of the most recently completed request
-        member this.Join() =
+        member this.Join() : unit =
             lock
                 LOCK_OBJ
                 (fun () ->
